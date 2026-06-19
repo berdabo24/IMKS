@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semantic Inventory Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Custom scrollbar for the SPARQL editor */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans h-screen flex overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-slate-900 text-white flex flex-col hidden md:flex">
+        <div class="p-6 flex items-center gap-3 border-b border-slate-700">
+            <i class="fas fa-network-wired text-blue-400 text-2xl"></i>
+            <span class="text-lg font-bold tracking-wide">SemLogistics</span>
+        </div>
+        <nav class="flex-1 px-4 py-6 space-y-2">
+            <a href="#" onclick="switchTab('dashboard')" class="nav-link flex items-center gap-3 px-4 py-3 bg-blue-600 rounded-lg text-white transition-colors">
+                <i class="fas fa-chart-pie w-5"></i> Dashboard
+            </a>
+            <a href="#" onclick="switchTab('sparql')" class="nav-link flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-slate-800 rounded-lg transition-colors">
+                <i class="fas fa-terminal w-5"></i> SPARQL Console
+            </a>
+            <a href="#" class="nav-link flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-slate-800 rounded-lg transition-colors">
+                <i class="fas fa-boxes w-5"></i> RDF Graph View
+            </a>
+            <a href="#" class="nav-link flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-slate-800 rounded-lg transition-colors">
+                <i class="fas fa-cog w-5"></i> Ontology Rules
+            </a>
+        </nav>
+        <div class="p-4 border-t border-slate-700 text-sm text-slate-400">
+            <p>Knowledge Base: Connected</p>
+            <p>Inference Engine: <span class="text-emerald-400 font-semibold">Active</span></p>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-screen overflow-hidden">
+        
+        <!-- Header -->
+        <header class="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center z-10">
+            <h1 class="text-2xl font-semibold text-slate-800" id="page-title">System Dashboard</h1>
+            <div class="flex items-center gap-4">
+                <button class="relative p-2 text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="fas fa-bell text-xl"></i>
+                    <span class="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                </button>
+                <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold border border-blue-200">
+                    AD
+                </div>
+            </div>
+        </header>
+
+        <!-- Scrollable Content Area -->
+        <div class="flex-1 overflow-y-auto p-8 custom-scrollbar">
+            
+            <!-- ================= DASHBOARD VIEW ================= -->
+            <div id="view-dashboard" class="space-y-6 block">
+                
+                <!-- Stats Row -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+                            <i class="fas fa-box-open"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-slate-500">Total Triples (RDF)</p>
+                            <p class="text-2xl font-bold text-slate-800">1,248</p>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-slate-500">Active OWL Rules</p>
+                            <p class="text-2xl font-bold text-slate-800">12</p>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-red-200 flex items-center gap-4 bg-red-50/30">
+                        <div class="w-12 h-12 rounded-lg bg-red-100 text-red-600 flex items-center justify-center text-xl">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-red-800">Inference Alerts</p>
+                            <p class="text-2xl font-bold text-red-600">2</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OWL Inference Alerts Section -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                        <h2 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                            <i class="fas fa-robot text-indigo-500"></i> OWL Reasoner Alerts
+                        </h2>
+                        <span class="text-xs font-medium px-2.5 py-1 bg-indigo-100 text-indigo-800 rounded-full">Auto-generated via Python Owlready2</span>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <!-- Alert 1 -->
+                        <div class="flex gap-4 p-4 rounded-lg bg-red-50 border border-red-100 items-start">
+                            <i class="fas fa-radiation text-red-500 mt-1"></i>
+                            <div>
+                                <h3 class="font-semibold text-red-800 text-sm">Storage Violation Detected</h3>
+                                <p class="text-slate-600 text-sm mt-1">The reasoner inferred that <span class="font-mono bg-white px-1 rounded border border-red-200 text-xs">Pallet_77 (Chemical)</span> cannot be stored in <span class="font-mono bg-white px-1 rounded border border-red-200 text-xs">Warehouse_A</span>.</p>
+                                <p class="text-xs font-medium text-red-500 mt-2"><i class="fas fa-link"></i> Violated Rule: Hazardous items require specialized storage facilities.</p>
+                            </div>
+                            <button class="ml-auto px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded shadow-sm transition-colors">Resolve</button>
+                        </div>
+                        <!-- Alert 2 -->
+                        <div class="flex gap-4 p-4 rounded-lg bg-amber-50 border border-amber-100 items-start">
+                            <i class="fas fa-temperature-high text-amber-500 mt-1"></i>
+                            <div>
+                                <h3 class="font-semibold text-amber-800 text-sm">Incompatible Transport Assignment</h3>
+                                <p class="text-slate-600 text-sm mt-1">Inferred conflict: <span class="font-mono bg-white px-1 rounded border border-amber-200 text-xs">Shipment_102 (Perishable)</span> is assigned to <span class="font-mono bg-white px-1 rounded border border-amber-200 text-xs">Truck_B</span> which lacks cooling.</p>
+                                <p class="text-xs font-medium text-amber-600 mt-2"><i class="fas fa-link"></i> Violated Rule: Perishables must map to Transport with hasCooling = true.</p>
+                            </div>
+                            <button class="ml-auto px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium rounded shadow-sm transition-colors">Reassign</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent RDF Graph Data -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                        <h2 class="text-lg font-semibold text-slate-800">Recent Graph Additions (RDF Triples)</h2>
+                        <button class="text-blue-600 hover:text-blue-800 text-sm font-medium">View Full Graph &rarr;</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                                <tr>
+                                    <th class="px-6 py-3 font-medium">Subject</th>
+                                    <th class="px-6 py-3 font-medium">Predicate</th>
+                                    <th class="px-6 py-3 font-medium">Object</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 font-mono text-xs">
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-6 py-4 text-blue-600">logistics:Pallet_77</td>
+                                    <td class="px-6 py-4 text-purple-600">rdf:type</td>
+                                    <td class="px-6 py-4 text-emerald-600">logistics:HazardousMaterial</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-6 py-4 text-blue-600">logistics:Pallet_77</td>
+                                    <td class="px-6 py-4 text-purple-600">logistics:storedIn</td>
+                                    <td class="px-6 py-4 text-emerald-600">logistics:Warehouse_A</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-6 py-4 text-blue-600">logistics:Warehouse_A</td>
+                                    <td class="px-6 py-4 text-purple-600">rdf:type</td>
+                                    <td class="px-6 py-4 text-emerald-600">logistics:GeneralStorage</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= SPARQL CONSOLE VIEW ================= -->
+            <div id="view-sparql" class="space-y-6 hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-200 bg-slate-800">
+                        <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                            <i class="fas fa-code text-blue-400"></i> Query the Knowledge Graph
+                        </h2>
+                    </div>
+                    <div class="p-6">
+                        <p class="text-sm text-slate-500 mb-4">Write SPARQL queries below to extract specific data from the RDF graph. The Python backend (RDFLib) will process this and return JSON results.</p>
+                        
+                        <div class="border border-slate-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 transition-shadow">
+                            <!-- Mock SPARQL Editor -->
+                            <textarea id="sparql-input" class="w-full h-48 p-4 font-mono text-sm bg-slate-50 text-slate-800 outline-none custom-scrollbar" spellcheck="false">PREFIX ex: <http://example.org/logistics#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+# Find all perishable items stored in locations without cooling
+SELECT ?item ?location 
+WHERE {
+  ?item ex:storedIn ?location .
+  ?item rdf:type ex:Perishable .
+  ?location ex:hasCooling "false"^^xsd:boolean .
+}</textarea>
+                        </div>
+                        
+                        <div class="mt-4 flex justify-between items-center">
+                            <div class="flex gap-2">
+                                <button onclick="insertSampleQuery()" class="px-3 py-1.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded border border-slate-200 transition-colors">Sample: Find Perishables</button>
+                            </div>
+                            <button onclick="runMockQuery()" id="run-btn" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2">
+                                <i class="fas fa-play text-sm"></i> Run Query
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Query Results (Initially Hidden) -->
+                <div id="query-results" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden transition-all duration-300">
+                    <div class="px-6 py-3 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                        <h3 class="text-sm font-semibold text-slate-700">Query Results (2 rows returned)</h3>
+                        <span class="text-xs text-slate-400">Execution time: 0.12s</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead class="text-xs text-slate-500 uppercase border-b border-slate-200">
+                                <tr>
+                                    <th class="px-6 py-3 font-medium bg-slate-50 border-r border-slate-200">?item</th>
+                                    <th class="px-6 py-3 font-medium bg-slate-50">?location</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 font-mono text-sm">
+                                <tr>
+                                    <td class="px-6 py-3 border-r border-slate-100 text-blue-600">http://example.org/logistics#Shipment_102</td>
+                                    <td class="px-6 py-3 text-emerald-600">http://example.org/logistics#Truck_B</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-3 border-r border-slate-100 text-blue-600">http://example.org/logistics#Shipment_105</td>
+                                    <td class="px-6 py-3 text-emerald-600">http://example.org/logistics#Warehouse_Temp</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="p-4 border-t border-slate-200 bg-slate-50">
+                        <pre class="text-xs text-slate-500 font-mono overflow-x-auto">RAW JSON RESPONSE:
+{
+  "head": { "vars": [ "item", "location" ] },
+  "results": {
+    "bindings": [
+      {
+        "item": { "type": "uri", "value": "http://example.org/logistics#Shipment_102" },
+        "location": { "type": "uri", "value": "http://example.org/logistics#Truck_B" }
+      }
+    ]
+  }
+}</pre>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // Tab switching logic
+        function switchTab(tabId) {
+            // Update Title
+            document.getElementById('page-title').innerText = tabId === 'dashboard' ? 'System Dashboard' : 'SPARQL Console';
+            
+            // Hide all views
+            document.getElementById('view-dashboard').classList.add('hidden');
+            document.getElementById('view-dashboard').classList.remove('block');
+            document.getElementById('view-sparql').classList.add('hidden');
+            document.getElementById('view-sparql').classList.remove('block');
+            
+            // Show selected view
+            document.getElementById('view-' + tabId).classList.remove('hidden');
+            document.getElementById('view-' + tabId).classList.add('block');
+
+            // Update sidebar active states
+            const links = document.querySelectorAll('.nav-link');
+            links.forEach(link => {
+                link.classList.remove('bg-blue-600', 'text-white');
+                link.classList.add('text-slate-300', 'hover:bg-slate-800');
+            });
+            
+            event.currentTarget.classList.remove('text-slate-300', 'hover:bg-slate-800');
+            event.currentTarget.classList.add('bg-blue-600', 'text-white');
+        }
+
+        // Mock SPARQL functionality
+        function insertSampleQuery() {
+            const query = `PREFIX ex: <http://example.org/logistics#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+# Find all perishable items stored in locations without cooling
+SELECT ?item ?location 
+WHERE {
+  ?item ex:storedIn ?location .
+  ?item rdf:type ex:Perishable .
+  ?location ex:hasCooling "false"^^xsd:boolean .
+}`;
+            document.getElementById('sparql-input').value = query;
+            document.getElementById('query-results').classList.add('hidden');
+        }
+
+        function runMockQuery() {
+            const btn = document.getElementById('run-btn');
+            const originalText = btn.innerHTML;
+            
+            // Show loading state
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin text-sm"></i> Running...';
+            btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            btn.classList.add('bg-slate-400', 'cursor-not-allowed');
+            
+            // Hide results temporarily
+            document.getElementById('query-results').classList.add('hidden');
+
+            // Mock network delay
+            setTimeout(() => {
+                // Restore button
+                btn.innerHTML = originalText;
+                btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                btn.classList.remove('bg-slate-400', 'cursor-not-allowed');
+                
+                // Show results
+                document.getElementById('query-results').classList.remove('hidden');
+            }, 800);
+        }
+    </script>
+</body>
+</html>
