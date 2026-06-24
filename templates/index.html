@@ -3,326 +3,1492 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Semantic Inventory Manager</title>
+    <title>IMKS - Inventory Management Knowledge System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Load Vis Network for RDF Visualization -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <style>
-        /* Custom scrollbar for the SPARQL editor */
+        body {
+            font-family: 'Outfit', sans-serif;
+        }
+        code, pre, textarea {
+            font-family: 'JetBrains Mono', monospace;
+        }
         .custom-scrollbar::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-            background: #f1f1f1; 
+            background: rgba(241, 245, 249, 0.5);
             border-radius: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #cbd5e1; 
+            background: #cbd5e1;
             border-radius: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8; 
+            background: #94a3b8;
+        }
+        /* Network Graph Container */
+        #graph-container {
+            width: 100%;
+            height: 550px;
+            background-color: #f8fafc;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
         }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans h-screen flex overflow-hidden">
 
     <!-- Sidebar -->
-    <aside class="w-64 bg-slate-900 text-white flex flex-col hidden md:flex">
-        <div class="p-6 flex items-center gap-3 border-b border-slate-700">
-            <i class="fas fa-network-wired text-blue-400 text-2xl"></i>
-            <span class="text-lg font-bold tracking-wide">SemLogistics</span>
+    <aside class="w-68 bg-slate-900 text-white flex flex-col hidden md:flex shrink-0">
+        <div class="p-6 flex items-center gap-3 border-b border-slate-800">
+            <div class="p-2 bg-indigo-600 rounded-lg text-white">
+                <i class="fas fa-network-wired text-xl"></i>
+            </div>
+            <div>
+                <span class="text-lg font-bold tracking-wide block">IMKS</span>
+                <span class="text-xs text-indigo-400 font-medium">Semantic Inventory</span>
+            </div>
         </div>
+        
         <nav class="flex-1 px-4 py-6 space-y-2">
-            <a href="#" onclick="switchTab('dashboard')" class="nav-link flex items-center gap-3 px-4 py-3 bg-blue-600 rounded-lg text-white transition-colors">
-                <i class="fas fa-chart-pie w-5"></i> Dashboard
-            </a>
-            <a href="#" onclick="switchTab('sparql')" class="nav-link flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-slate-800 rounded-lg transition-colors">
-                <i class="fas fa-terminal w-5"></i> SPARQL Console
-            </a>
-            <a href="#" class="nav-link flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-slate-800 rounded-lg transition-colors">
-                <i class="fas fa-boxes w-5"></i> RDF Graph View
-            </a>
-            <a href="#" class="nav-link flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-slate-800 rounded-lg transition-colors">
-                <i class="fas fa-cog w-5"></i> Ontology Rules
-            </a>
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="w-full nav-link flex items-center gap-3 px-4 py-3 bg-indigo-600 rounded-lg text-white font-medium transition-all shadow-md shadow-indigo-900/20">
+                <i class="fas fa-chart-pie w-5 text-lg"></i> Dashboard
+            </button>
+            <button onclick="switchTab('sparql')" id="nav-sparql" class="w-full nav-link flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg font-medium transition-all">
+                <i class="fas fa-terminal w-5 text-lg"></i> SPARQL Console
+            </button>
+            <button onclick="switchTab('graph')" id="nav-graph" class="w-full nav-link flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg font-medium transition-all">
+                <i class="fas fa-circle-nodes w-5 text-lg"></i> RDF Graph View
+            </button>
+            <button onclick="switchTab('manager')" id="nav-manager" class="w-full nav-link flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg font-medium transition-all">
+                <i class="fas fa-boxes-stacked w-5 text-lg"></i> Entity Manager
+            </button>
         </nav>
-        <div class="p-4 border-t border-slate-700 text-sm text-slate-400">
-            <p>Knowledge Base: Connected</p>
-            <p>Inference Engine: <span class="text-emerald-400 font-semibold">Active</span></p>
+        
+        <!-- Sidebar Footer -->
+        <div class="p-5 border-t border-slate-800 text-xs text-slate-400 bg-slate-950/40">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full inline-block animate-pulse"></span>
+                <p class="font-medium text-slate-300">Reasoner Status: Active</p>
+            </div>
+            <p class="text-slate-500">Ontology: RDF/XML + TTL</p>
         </div>
     </aside>
 
-    <!-- Main Content -->
+    <!-- Main Content Area -->
     <main class="flex-1 flex flex-col h-screen overflow-hidden">
         
         <!-- Header -->
-        <header class="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center z-10">
-            <h1 class="text-2xl font-semibold text-slate-800" id="page-title">System Dashboard</h1>
-            <div class="flex items-center gap-4">
-                <button class="relative p-2 text-slate-400 hover:text-slate-600 transition-colors">
-                    <i class="fas fa-bell text-xl"></i>
-                    <span class="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+        <header class="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center z-10 shrink-0">
+            <div class="flex items-center gap-3">
+                <button class="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg">
+                    <i class="fas fa-bars text-xl"></i>
                 </button>
-                <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold border border-blue-200">
-                    AD
+                <h1 class="text-2xl font-bold text-slate-800" id="page-title">System Dashboard</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="fetchData(true)" class="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-all" title="Force Recalculate Alerts">
+                    <i class="fas fa-rotate text-lg"></i>
+                </button>
+                <div class="flex items-center gap-3 pl-3 border-l border-slate-200">
+                    <div class="text-right">
+                        <span class="text-xs font-semibold text-slate-400 block">Current User</span>
+                        <span class="text-sm font-semibold text-slate-800">Procurement System</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
+                        PS
+                    </div>
                 </div>
             </div>
         </header>
 
-        <!-- Scrollable Content Area -->
+        <!-- Scrollable Content -->
         <div class="flex-1 overflow-y-auto p-8 custom-scrollbar">
             
-            <!-- ================= DASHBOARD VIEW ================= -->
-            <div id="view-dashboard" class="space-y-6 block">
+            <!-- ================= TAB: DASHBOARD ================= -->
+            <div id="tab-dashboard" class="space-y-8 block">
                 
-                <!-- Stats Row -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
-                            <i class="fas fa-box-open"></i>
+                <!-- Statistics Summary -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white rounded-2xl shadow-sm p-6 border border-slate-100 flex items-center gap-5 hover:shadow-md transition-all">
+                        <div class="w-14 h-14 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl shadow-sm">
+                            <i class="fas fa-network-wired"></i>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-slate-500">Total Triples (RDF)</p>
-                            <p class="text-2xl font-bold text-slate-800">1,248</p>
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total RDF Triples</p>
+                            <p class="text-2xl font-bold text-slate-800 mt-1" id="stat-triples">0</p>
                         </div>
                     </div>
-                    <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
-                            <i class="fas fa-brain"></i>
+                    <div class="bg-white rounded-2xl shadow-sm p-6 border border-slate-100 flex items-center gap-5 hover:shadow-md transition-all">
+                        <div class="w-14 h-14 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl shadow-sm">
+                            <i class="fas fa-boxes-stacked"></i>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-slate-500">Active OWL Rules</p>
-                            <p class="text-2xl font-bold text-slate-800">12</p>
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Stock Items</p>
+                            <p class="text-2xl font-bold text-slate-800 mt-1" id="stat-items">0</p>
                         </div>
                     </div>
-                    <div class="bg-white rounded-xl shadow-sm p-6 border border-red-200 flex items-center gap-4 bg-red-50/30">
-                        <div class="w-12 h-12 rounded-lg bg-red-100 text-red-600 flex items-center justify-center text-xl">
-                            <i class="fas fa-exclamation-triangle"></i>
+                    <div class="bg-white rounded-2xl shadow-sm p-6 border border-slate-100 flex items-center gap-5 hover:shadow-md transition-all">
+                        <div class="w-14 h-14 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl shadow-sm">
+                            <i class="fas fa-warehouse"></i>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-red-800">Inference Alerts</p>
-                            <p class="text-2xl font-bold text-red-600">2</p>
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Warehouses</p>
+                            <p class="text-2xl font-bold text-slate-800 mt-1" id="stat-facilities">0</p>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-sm p-6 border border-red-50 text-red-900 flex items-center gap-5 bg-red-50/20 hover:shadow-md transition-all">
+                        <div class="w-14 h-14 rounded-xl bg-red-100 text-red-600 flex items-center justify-center text-2xl shadow-sm">
+                            <i class="fas fa-circle-exclamation"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-semibold text-red-500 uppercase tracking-wider">Active Alerts</p>
+                            <p class="text-2xl font-bold text-red-600 mt-1" id="stat-alerts">0</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- OWL Inference Alerts Section -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-                        <h2 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
-                            <i class="fas fa-robot text-indigo-500"></i> OWL Reasoner Alerts
-                        </h2>
-                        <span class="text-xs font-medium px-2.5 py-1 bg-indigo-100 text-indigo-800 rounded-full">Auto-generated via Python Owlready2</span>
-                    </div>
-                    <div class="p-6 space-y-4">
-                        <!-- Alert 1 -->
-                        <div class="flex gap-4 p-4 rounded-lg bg-red-50 border border-red-100 items-start">
-                            <i class="fas fa-radiation text-red-500 mt-1"></i>
-                            <div>
-                                <h3 class="font-semibold text-red-800 text-sm">Storage Violation Detected</h3>
-                                <p class="text-slate-600 text-sm mt-1">The reasoner inferred that <span class="font-mono bg-white px-1 rounded border border-red-200 text-xs">Pallet_77 (Chemical)</span> cannot be stored in <span class="font-mono bg-white px-1 rounded border border-red-200 text-xs">Warehouse_A</span>.</p>
-                                <p class="text-xs font-medium text-red-500 mt-2"><i class="fas fa-link"></i> Violated Rule: Hazardous items require specialized storage facilities.</p>
+                <!-- Main Grid -->
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                    
+                    <!-- Alerts Column (2/3 width) -->
+                    <div class="xl:col-span-2 space-y-6">
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                                <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                    <i class="fas fa-robot text-indigo-600"></i> OWL Reasoning Alerts
+                                </h2>
+                                <span class="text-xs font-bold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100">Inferred dynamically</span>
                             </div>
-                            <button class="ml-auto px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded shadow-sm transition-colors">Resolve</button>
+                            <div class="p-6 space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar" id="dashboard-alerts">
+                                <!-- Alert cards will load here -->
+                                <div class="text-center py-8 text-slate-400">
+                                    <i class="fas fa-circle-notch fa-spin text-3xl mb-2 text-indigo-500"></i>
+                                    <p class="text-sm">Evaluating ontology rules...</p>
+                                </div>
+                            </div>
                         </div>
-                        <!-- Alert 2 -->
-                        <div class="flex gap-4 p-4 rounded-lg bg-amber-50 border border-amber-100 items-start">
-                            <i class="fas fa-temperature-high text-amber-500 mt-1"></i>
-                            <div>
-                                <h3 class="font-semibold text-amber-800 text-sm">Incompatible Transport Assignment</h3>
-                                <p class="text-slate-600 text-sm mt-1">Inferred conflict: <span class="font-mono bg-white px-1 rounded border border-amber-200 text-xs">Shipment_102 (Perishable)</span> is assigned to <span class="font-mono bg-white px-1 rounded border border-amber-200 text-xs">Truck_B</span> which lacks cooling.</p>
-                                <p class="text-xs font-medium text-amber-600 mt-2"><i class="fas fa-link"></i> Violated Rule: Perishables must map to Transport with hasCooling = true.</p>
+                    </div>
+
+                    <!-- Side Stats & Actions -->
+                    <div class="space-y-6">
+                        <!-- Quick Help Card -->
+                        <div class="bg-gradient-to-br from-indigo-900 to-indigo-950 text-white rounded-2xl shadow-sm p-6 relative overflow-hidden border border-indigo-950">
+                            <div class="absolute -right-16 -bottom-16 w-48 h-48 rounded-full bg-indigo-800/20 blur-xl"></div>
+                            <h3 class="text-lg font-bold mb-3 flex items-center gap-2">
+                                <i class="fas fa-brain text-indigo-400"></i> Semantic Reasoning
+                            </h3>
+                            <p class="text-indigo-200 text-sm leading-relaxed mb-4">
+                                This system loads a RDFS/OWL ontology and computes subclass closures and warehouse compliance checks.
+                            </p>
+                            <div class="space-y-2.5 text-xs text-indigo-300">
+                                <div class="flex items-start gap-2">
+                                    <i class="fas fa-check-circle text-emerald-400 mt-0.5"></i>
+                                    <span>Verifies perishable items matching cold storage temperature settings.</span>
+                                </div>
+                                <div class="flex items-start gap-2">
+                                    <i class="fas fa-check-circle text-emerald-400 mt-0.5"></i>
+                                    <span>Checks hazardous chemical facility regulations.</span>
+                                </div>
+                                <div class="flex items-start gap-2">
+                                    <i class="fas fa-check-circle text-emerald-400 mt-0.5"></i>
+                                    <span>Calculates stock capacities dynamically.</span>
+                                </div>
                             </div>
-                            <button class="ml-auto px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium rounded shadow-sm transition-colors">Reassign</button>
+                        </div>
+
+                        <!-- Warehouse Capacities Progress -->
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
+                            <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Facility Space Usage</h3>
+                            <div class="space-y-4" id="dashboard-facility-space">
+                                <!-- Loading progress bars -->
+                                <p class="text-xs text-slate-400 text-center">Loading storage spaces...</p>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Recent RDF Graph Data -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-                        <h2 class="text-lg font-semibold text-slate-800">Recent Graph Additions (RDF Triples)</h2>
-                        <button class="text-blue-600 hover:text-blue-800 text-sm font-medium">View Full Graph &rarr;</button>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-sm text-slate-600">
-                            <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
-                                <tr>
-                                    <th class="px-6 py-3 font-medium">Subject</th>
-                                    <th class="px-6 py-3 font-medium">Predicate</th>
-                                    <th class="px-6 py-3 font-medium">Object</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 font-mono text-xs">
-                                <tr class="hover:bg-slate-50">
-                                    <td class="px-6 py-4 text-blue-600">logistics:Pallet_77</td>
-                                    <td class="px-6 py-4 text-purple-600">rdf:type</td>
-                                    <td class="px-6 py-4 text-emerald-600">logistics:HazardousMaterial</td>
-                                </tr>
-                                <tr class="hover:bg-slate-50">
-                                    <td class="px-6 py-4 text-blue-600">logistics:Pallet_77</td>
-                                    <td class="px-6 py-4 text-purple-600">logistics:storedIn</td>
-                                    <td class="px-6 py-4 text-emerald-600">logistics:Warehouse_A</td>
-                                </tr>
-                                <tr class="hover:bg-slate-50">
-                                    <td class="px-6 py-4 text-blue-600">logistics:Warehouse_A</td>
-                                    <td class="px-6 py-4 text-purple-600">rdf:type</td>
-                                    <td class="px-6 py-4 text-emerald-600">logistics:GeneralStorage</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
             </div>
 
-            <!-- ================= SPARQL CONSOLE VIEW ================= -->
-            <div id="view-sparql" class="space-y-6 hidden">
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="px-6 py-4 border-b border-slate-200 bg-slate-800">
-                        <h2 class="text-lg font-semibold text-white flex items-center gap-2">
-                            <i class="fas fa-code text-blue-400"></i> Query the Knowledge Graph
+            <!-- ================= TAB: SPARQL CONSOLE ================= -->
+            <div id="tab-sparql" class="space-y-8 hidden">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-6 py-5 border-b border-slate-100 bg-slate-900 flex justify-between items-center">
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i class="fas fa-code text-indigo-400"></i> SPARQL Console
                         </h2>
+                        <span class="text-xs text-slate-400 font-mono">SPARQL 1.1 Endpoint</span>
                     </div>
                     <div class="p-6">
-                        <p class="text-sm text-slate-500 mb-4">Write SPARQL queries below to extract specific data from the RDF graph. The Python backend (RDFLib) will process this and return JSON results.</p>
+                        <p class="text-sm text-slate-500 mb-4">
+                            Execute SPARQL query commands against the RDF/OWL triple store. Inferred subclass hierarchies and alerts are fully queryable.
+                        </p>
                         
-                        <div class="border border-slate-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 transition-shadow">
-                            <!-- Mock SPARQL Editor -->
-                            <textarea id="sparql-input" class="w-full h-48 p-4 font-mono text-sm bg-slate-50 text-slate-800 outline-none custom-scrollbar" spellcheck="false">PREFIX ex: <http://example.org/logistics#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-
-# Find all perishable items stored in locations without cooling
-SELECT ?item ?location 
-WHERE {
-  ?item ex:storedIn ?location .
-  ?item rdf:type ex:Perishable .
-  ?location ex:hasCooling "false"^^xsd:boolean .
-}</textarea>
+                        <!-- Sample Query Preset Badges -->
+                        <div class="flex flex-wrap gap-2 mb-4 items-center">
+                            <span class="text-xs font-semibold text-slate-400 mr-1">Sample Presets:</span>
+                            <button onclick="loadQueryPreset('all_items')" class="px-3 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg text-xs font-medium border border-slate-200 transition-all">List All Stock Items</button>
+                            <button onclick="loadQueryPreset('perishable_conflicts')" class="px-3 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg text-xs font-medium border border-slate-200 transition-all">Perishable Temp Conflicts</button>
+                            <button onclick="loadQueryPreset('low_stock')" class="px-3 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg text-xs font-medium border border-slate-200 transition-all">Low Stock Inferences</button>
+                            <button onclick="loadQueryPreset('facility_totals')" class="px-3 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg text-xs font-medium border border-slate-200 transition-all">Capacity Stats (SUM & GROUP BY)</button>
+                        </div>
+                        
+                        <div class="border border-slate-300 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 transition-all">
+                            <textarea id="sparql-editor" class="w-full h-56 p-4 font-mono text-sm bg-slate-900 text-indigo-200 outline-none custom-scrollbar" spellcheck="false"></textarea>
                         </div>
                         
                         <div class="mt-4 flex justify-between items-center">
-                            <div class="flex gap-2">
-                                <button onclick="insertSampleQuery()" class="px-3 py-1.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded border border-slate-200 transition-colors">Sample: Find Perishables</button>
-                            </div>
-                            <button onclick="runMockQuery()" id="run-btn" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2">
+                            <button onclick="clearSPARQLConsole()" class="px-4 py-2 text-sm text-slate-500 hover:text-slate-800 transition-all">
+                                <i class="fas fa-trash-can mr-1.5"></i> Clear Editor
+                            </button>
+                            <button onclick="runSPARQLQuery()" id="sparql-run-btn" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-sm hover:shadow-md transition-all flex items-center gap-2">
                                 <i class="fas fa-play text-sm"></i> Run Query
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Query Results (Initially Hidden) -->
-                <div id="query-results" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden transition-all duration-300">
-                    <div class="px-6 py-3 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-                        <h3 class="text-sm font-semibold text-slate-700">Query Results (2 rows returned)</h3>
-                        <span class="text-xs text-slate-400">Execution time: 0.12s</span>
+                <!-- Query Results Panel -->
+                <div id="sparql-results-card" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hidden transition-all">
+                    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                        <h3 class="text-sm font-bold text-slate-800" id="sparql-result-title">Query Results</h3>
+                        <div class="flex items-center gap-3">
+                            <button onclick="toggleRawJson()" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-all">
+                                <i class="fas fa-eye mr-1"></i> Toggle Raw JSON
+                            </button>
+                            <span class="text-xs text-slate-400" id="sparql-exec-time"></span>
+                        </div>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-sm text-slate-600">
-                            <thead class="text-xs text-slate-500 uppercase border-b border-slate-200">
-                                <tr>
-                                    <th class="px-6 py-3 font-medium bg-slate-50 border-r border-slate-200">?item</th>
-                                    <th class="px-6 py-3 font-medium bg-slate-50">?location</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 font-mono text-sm">
-                                <tr>
-                                    <td class="px-6 py-3 border-r border-slate-100 text-blue-600">http://example.org/logistics#Shipment_102</td>
-                                    <td class="px-6 py-3 text-emerald-600">http://example.org/logistics#Truck_B</td>
-                                </tr>
-                                <tr>
-                                    <td class="px-6 py-3 border-r border-slate-100 text-blue-600">http://example.org/logistics#Shipment_105</td>
-                                    <td class="px-6 py-3 text-emerald-600">http://example.org/logistics#Warehouse_Temp</td>
-                                </tr>
-                            </tbody>
+                    
+                    <!-- Result Table Container -->
+                    <div class="overflow-x-auto custom-scrollbar max-h-96">
+                        <table class="w-full text-left text-sm text-slate-600" id="sparql-result-table">
+                            <!-- Populated dynamically -->
                         </table>
                     </div>
-                    <div class="p-4 border-t border-slate-200 bg-slate-50">
-                        <pre class="text-xs text-slate-500 font-mono overflow-x-auto">RAW JSON RESPONSE:
-{
-  "head": { "vars": [ "item", "location" ] },
-  "results": {
-    "bindings": [
-      {
-        "item": { "type": "uri", "value": "http://example.org/logistics#Shipment_102" },
-        "location": { "type": "uri", "value": "http://example.org/logistics#Truck_B" }
-      }
-    ]
-  }
-}</pre>
+                    
+                    <!-- Raw JSON Response -->
+                    <div id="sparql-raw-json" class="p-4 border-t border-slate-100 bg-slate-950 hidden">
+                        <pre class="text-xs text-emerald-400 overflow-x-auto custom-scrollbar" id="sparql-raw-pre"></pre>
                     </div>
                 </div>
+            </div>
+
+            <!-- ================= TAB: RDF GRAPH VIEW ================= -->
+            <div id="tab-graph" class="space-y-6 hidden">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-800">RDF / OWL Ontology Graph Visualizer</h2>
+                            <p class="text-sm text-slate-500 mt-1">Interactive network diagram mapping stock items, storage, vehicles, officers, and inferred alerts.</p>
+                        </div>
+                        <button onclick="loadGraphNetwork()" class="px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-semibold rounded-lg text-sm transition-all">
+                            <i class="fas fa-arrows-rotate mr-1.5"></i> Redraw Network
+                        </button>
+                    </div>
+                    
+                    <!-- Graph Layout -->
+                    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                        <div class="lg:col-span-3 relative">
+                            <!-- Visualizer container -->
+                            <div id="graph-container"></div>
+                            
+                            <!-- Graph Legend overlays -->
+                            <div class="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm border border-slate-200 rounded-xl p-3 flex flex-wrap gap-3 text-xs font-semibold shadow-sm max-w-[90%]">
+                                <div class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 bg-blue-100 border border-blue-500 rounded-full inline-block"></span> Stock Item</div>
+                                <div class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 bg-emerald-100 border border-emerald-500 rounded-full inline-block"></span> Storage</div>
+                                <div class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 bg-fuchsia-100 border border-fuchsia-500 rounded-full inline-block"></span> Vehicle</div>
+                                <div class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 bg-amber-100 border border-amber-500 rounded-full inline-block"></span> Officer</div>
+                                <div class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 bg-red-100 border border-red-500 rounded-full inline-block"></span> Alert</div>
+                                <div class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 bg-slate-200 border border-slate-500 rounded-full inline-block"></span> Class</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Sidebar drawer for node inspection -->
+                        <div class="bg-slate-50 rounded-xl border border-slate-200 p-5 flex flex-col justify-between max-h-[550px] overflow-y-auto custom-scrollbar">
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm border-b border-slate-200 pb-2 mb-3">
+                                    <i class="fas fa-magnifying-glass mr-1.5 text-indigo-500"></i> Triple Inspector
+                                </h3>
+                                <div id="graph-inspector-empty" class="text-center py-12 text-slate-400 text-xs">
+                                    <i class="fas fa-circle-nodes text-3xl mb-3 text-slate-300 block"></i>
+                                    Click any node in the graph network to inspect its URI and details.
+                                </div>
+                                <div id="graph-inspector-content" class="hidden space-y-4 text-xs">
+                                    <div>
+                                        <span class="font-bold text-slate-400 block uppercase tracking-wider">URI Identifier</span>
+                                        <code id="inspector-uri" class="bg-white px-2 py-1 rounded border border-slate-200 text-indigo-600 break-all select-all font-medium mt-1 inline-block"></code>
+                                    </div>
+                                    <div>
+                                        <span class="font-bold text-slate-400 block uppercase tracking-wider mb-1">Associated Triples</span>
+                                        <div id="inspector-triples" class="space-y-1 max-h-64 overflow-y-auto custom-scrollbar">
+                                            <!-- Triples listed here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 pt-4 border-t border-slate-200 text-xs text-slate-500 flex items-start gap-2">
+                                <i class="fas fa-info-circle text-slate-400 mt-0.5"></i>
+                                <span>Double click or drag nodes to manipulate the layout. Scroll to zoom.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= TAB: ENTITY MANAGER ================= -->
+            <div id="tab-manager" class="space-y-8 hidden">
+                
+                <!-- Category Select Tabs -->
+                <div class="flex border-b border-slate-200 gap-6">
+                    <button onclick="switchManagerSubtab('item')" id="subtab-btn-item" class="subtab-btn pb-3 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600">Stock Items</button>
+                    <button onclick="switchManagerSubtab('facility')" id="subtab-btn-facility" class="subtab-btn pb-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-700">Storage Facilities</button>
+                    <button onclick="switchManagerSubtab('vehicle')" id="subtab-btn-vehicle" class="subtab-btn pb-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-700">Vehicles</button>
+                    <button onclick="switchManagerSubtab('officer')" id="subtab-btn-officer" class="subtab-btn pb-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-700">Procurement Officers</button>
+                </div>
+
+                <!-- Subtab sections -->
+                
+                <!-- SUBTAB: STOCK ITEMS -->
+                <div id="manager-sub-item" class="manager-sub-panel space-y-6 block">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-bold text-slate-800">Inventory Stock Items</h3>
+                        <button onclick="openAddModal('item')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm shadow-sm transition-all flex items-center gap-1.5">
+                            <i class="fas fa-plus"></i> Add Stock Item
+                        </button>
+                    </div>
+                    
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left text-sm text-slate-600">
+                                <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                                    <tr>
+                                        <th class="px-6 py-3 font-semibold">Local ID</th>
+                                        <th class="px-6 py-3 font-semibold">Item Name</th>
+                                        <th class="px-6 py-3 font-semibold">Type</th>
+                                        <th class="px-6 py-3 font-semibold">Quantity</th>
+                                        <th class="px-6 py-3 font-semibold">Min Limit</th>
+                                        <th class="px-6 py-3 font-semibold">Warehouse</th>
+                                        <th class="px-6 py-3 font-semibold">Assigned Transport</th>
+                                        <th class="px-6 py-3 font-semibold text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 font-medium" id="table-items-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUBTAB: STORAGE FACILITIES -->
+                <div id="manager-sub-facility" class="manager-sub-panel space-y-6 hidden">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-bold text-slate-800">Storage Warehouses</h3>
+                        <button onclick="openAddModal('facility')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm shadow-sm transition-all flex items-center gap-1.5">
+                            <i class="fas fa-plus"></i> Add Facility
+                        </button>
+                    </div>
+                    
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left text-sm text-slate-600">
+                                <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                                    <tr>
+                                        <th class="px-6 py-3 font-semibold">Local ID</th>
+                                        <th class="px-6 py-3 font-semibold">Facility Name</th>
+                                        <th class="px-6 py-3 font-semibold">Subclass</th>
+                                        <th class="px-6 py-3 font-semibold">Refrigerated</th>
+                                        <th class="px-6 py-3 font-semibold">Hazardous approved</th>
+                                        <th class="px-6 py-3 font-semibold">Capacity</th>
+                                        <th class="px-6 py-3 font-semibold text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 font-medium" id="table-facilities-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUBTAB: VEHICLES -->
+                <div id="manager-sub-vehicle" class="manager-sub-panel space-y-6 hidden">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-bold text-slate-800">Transport Fleet</h3>
+                        <button onclick="openAddModal('vehicle')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm shadow-sm transition-all flex items-center gap-1.5">
+                            <i class="fas fa-plus"></i> Add Vehicle
+                        </button>
+                    </div>
+                    
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left text-sm text-slate-600">
+                                <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                                    <tr>
+                                        <th class="px-6 py-3 font-semibold">Local ID</th>
+                                        <th class="px-6 py-3 font-semibold">Vehicle Name</th>
+                                        <th class="px-6 py-3 font-semibold">Vehicle Class</th>
+                                        <th class="px-6 py-3 font-semibold">Has Cooling</th>
+                                        <th class="px-6 py-3 font-semibold">HazMat Certified</th>
+                                        <th class="px-6 py-3 font-semibold text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 font-medium" id="table-vehicles-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUBTAB: OFFICERS -->
+                <div id="manager-sub-officer" class="manager-sub-panel space-y-6 hidden">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-bold text-slate-800">Procurement Staff</h3>
+                        <button onclick="openAddModal('officer')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm shadow-sm transition-all flex items-center gap-1.5">
+                            <i class="fas fa-plus"></i> Add Officer
+                        </button>
+                    </div>
+                    
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left text-sm text-slate-600">
+                                <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                                    <tr>
+                                        <th class="px-6 py-3 font-semibold">Local ID</th>
+                                        <th class="px-6 py-3 font-semibold">Officer Name</th>
+                                        <th class="px-6 py-3 font-semibold text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 font-medium" id="table-officers-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
         </div>
     </main>
 
+    <!-- ================= MODAL: ADD ENTITY ================= -->
+    <div id="add-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-100 transform scale-95 transition-all">
+            <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2" id="modal-title">
+                    <i class="fas fa-circle-plus text-indigo-600"></i> Add New Entity
+                </h3>
+                <button onclick="closeAddModal()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-xmark text-lg"></i></button>
+            </div>
+            
+            <form onsubmit="submitAddForm(event)" class="p-6 space-y-4">
+                <input type="hidden" id="form-category">
+                
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Local Unique ID (No Spaces)</label>
+                    <input type="text" id="form-id" required placeholder="e.g. Item_ChilledJuice" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono">
+                </div>
+                
+                <!-- Subcategory Type Selector (rendered dynamically based on category) -->
+                <div id="type-select-container">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Specific Class Type</label>
+                    <select id="form-type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1" id="label-name">Label / Name</label>
+                    <input type="text" id="form-name" required placeholder="e.g. Chilled Orange Juice" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                
+                <!-- Dynamic form inputs container -->
+                <div id="dynamic-inputs" class="space-y-4">
+                    <!-- Quantity & MinThreshold, cooling & hazard checkboxes etc. -->
+                </div>
+                
+                <div class="pt-4 border-t border-slate-100 flex justify-end gap-3 text-sm">
+                    <button type="button" onclick="closeAddModal()" class="px-4 py-2 border border-slate-200 text-slate-500 rounded-lg font-medium hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 shadow-sm">Save Entity</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= MODAL: RESOLVE ALERTS ================= -->
+    <div id="resolve-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-100">
+            <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+                    <i class="fas fa-screwdriver-wrench text-indigo-600"></i> Resolve Assignment
+                </h3>
+                <button onclick="closeResolveModal()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-xmark text-lg"></i></button>
+            </div>
+            
+            <form onsubmit="submitResolveForm(event)" class="p-6 space-y-4">
+                <input type="hidden" id="resolve-item-uri">
+                
+                <div>
+                    <span class="block text-xs font-bold text-slate-400 uppercase tracking-wider">Item being updated</span>
+                    <p class="font-bold text-slate-800 mt-1" id="resolve-item-name"></p>
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Assign Storage Warehouse</label>
+                    <select id="resolve-facility-uri" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <!-- Populated with warehouse choices -->
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Assign Transport Vehicle</label>
+                    <select id="resolve-vehicle-uri" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <!-- Populated with vehicle choices -->
+                    </select>
+                </div>
+                
+                <div class="pt-4 border-t border-slate-100 flex justify-end gap-3 text-sm">
+                    <button type="button" onclick="closeResolveModal()" class="px-4 py-2 border border-slate-200 text-slate-500 rounded-lg font-medium hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 shadow-sm">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Frontend Scripting Logic -->
     <script>
-        // Tab switching logic
-        function switchTab(tabId) {
-            // Update Title
-            document.getElementById('page-title').innerText = tabId === 'dashboard' ? 'System Dashboard' : 'SPARQL Console';
-            
-            // Hide all views
-            document.getElementById('view-dashboard').classList.add('hidden');
-            document.getElementById('view-dashboard').classList.remove('block');
-            document.getElementById('view-sparql').classList.add('hidden');
-            document.getElementById('view-sparql').classList.remove('block');
-            
-            // Show selected view
-            document.getElementById('view-' + tabId).classList.remove('hidden');
-            document.getElementById('view-' + tabId).classList.add('block');
+        // State
+        let currentTab = 'dashboard';
+        let currentManagerSubtab = 'item';
+        let entities = { items: [], facilities: [], vehicles: [], officers: [] };
+        let alerts = [];
+        let visNetwork = null;
+        let isJsonVisible = false;
 
-            // Update sidebar active states
-            const links = document.querySelectorAll('.nav-link');
-            links.forEach(link => {
-                link.classList.remove('bg-blue-600', 'text-white');
-                link.classList.add('text-slate-300', 'hover:bg-slate-800');
-            });
-            
-            event.currentTarget.classList.remove('text-slate-300', 'hover:bg-slate-800');
-            event.currentTarget.classList.add('bg-blue-600', 'text-white');
-        }
-
-        // Mock SPARQL functionality
-        function insertSampleQuery() {
-            const query = `PREFIX ex: <http://example.org/logistics#>
+        // SPARQL Presets definitions
+        const sparqlPresets = {
+            all_items: `PREFIX logistics: <http://example.org/logistics#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
-# Find all perishable items stored in locations without cooling
-SELECT ?item ?location 
+# List all stock items, their quantities, min threshold limits, and type
+SELECT ?item ?name ?quantity ?threshold ?itemType
 WHERE {
-  ?item ex:storedIn ?location .
-  ?item rdf:type ex:Perishable .
-  ?location ex:hasCooling "false"^^xsd:boolean .
-}`;
-            document.getElementById('sparql-input').value = query;
-            document.getElementById('query-results').classList.add('hidden');
+  ?item rdf:type logistics:StockItem .
+  ?item rdf:type ?itemType .
+  FILTER(?itemType != logistics:StockItem)
+  ?item logistics:itemName ?name .
+  ?item logistics:quantity ?quantity .
+  ?item logistics:minThreshold ?threshold .
+}
+ORDER BY ?name`,
+
+            perishable_conflicts: `PREFIX logistics: <http://example.org/logistics#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+# Find perishables stored in a warehouse that lacks cooling, matching alerts
+SELECT ?item ?itemName ?facility ?facilityName
+WHERE {
+  ?item rdf:type logistics:PerishableItem .
+  ?item logistics:itemName ?itemName .
+  ?item logistics:storedIn ?facility .
+  ?facility logistics:facilityName ?facilityName .
+  ?facility logistics:hasCooling "false"^^xsd:boolean .
+}`,
+
+            low_stock: `PREFIX logistics: <http://example.org/logistics#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+# Query all items whose quantity has fallen below minimum threshold limit
+SELECT ?item ?name ?qty ?limit ?officerName
+WHERE {
+  ?item rdf:type logistics:StockItem .
+  ?item logistics:itemName ?name .
+  ?item logistics:quantity ?qty .
+  ?item logistics:minThreshold ?limit .
+  ?item logistics:managedBy ?officer .
+  ?officer logistics:officerName ?officerName .
+  FILTER(?qty < ?limit)
+}`,
+
+            facility_totals: `PREFIX logistics: <http://example.org/logistics#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+# Sum items and capacities to review warehouse inventory density ratios
+SELECT ?facility ?facName ?capacity (SUM(?qty) AS ?totalStored) (?capacity - SUM(?qty) AS ?remainingSpace)
+WHERE {
+  ?facility rdf:type logistics:StorageFacility .
+  ?facility logistics:facilityName ?facName .
+  ?facility logistics:capacity ?capacity .
+  OPTIONAL {
+    ?item logistics:storedIn ?facility .
+    ?item logistics:quantity ?qty .
+  }
+}
+GROUP BY ?facility ?facName ?capacity
+ORDER BY DESC(?totalStored)`
+        };
+
+        // Initialize On Load
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchData();
+            loadQueryPreset('all_items');
+        });
+
+        // Tab Switcher
+        function switchTab(tabId) {
+            currentTab = tabId;
+            document.getElementById('page-title').innerText = 
+                tabId === 'dashboard' ? 'System Dashboard' : 
+                tabId === 'sparql' ? 'SPARQL Console' : 
+                tabId === 'graph' ? 'Ontology Graph View' : 'Entity Manager';
+                
+            // Adjust visibility
+            ['dashboard', 'sparql', 'graph', 'manager'].forEach(t => {
+                document.getElementById('tab-' + t).classList.add('hidden');
+                document.getElementById('tab-' + t).classList.remove('block');
+                
+                // Nav buttons
+                const btn = document.getElementById('nav-' + t);
+                btn.classList.remove('bg-indigo-600', 'text-white', 'shadow-md', 'shadow-indigo-900/20');
+                btn.classList.add('text-slate-400', 'hover:bg-slate-800', 'hover:text-white');
+            });
+            
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            document.getElementById('tab-' + tabId).classList.add('block');
+            
+            const activeBtn = document.getElementById('nav-' + tabId);
+            activeBtn.classList.remove('text-slate-400', 'hover:bg-slate-800', 'hover:text-white');
+            activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-md', 'shadow-indigo-900/20');
+
+            if (tabId === 'graph') {
+                setTimeout(loadGraphNetwork, 100);
+            }
         }
 
-        function runMockQuery() {
-            const btn = document.getElementById('run-btn');
+        // Subtab for Entity Manager
+        function switchManagerSubtab(subId) {
+            currentManagerSubtab = subId;
+            document.querySelectorAll('.subtab-btn').forEach(btn => {
+                btn.classList.remove('border-indigo-600', 'text-indigo-600');
+                btn.classList.add('border-transparent', 'text-slate-400', 'hover:text-slate-700');
+            });
+            
+            const activeSubBtn = document.getElementById('subtab-btn-' + subId);
+            activeSubBtn.classList.remove('border-transparent', 'text-slate-400', 'hover:text-slate-700');
+            activeSubBtn.classList.add('border-indigo-600', 'text-indigo-600');
+            
+            document.querySelectorAll('.manager-sub-panel').forEach(panel => {
+                panel.classList.add('hidden');
+                panel.classList.remove('block');
+            });
+            document.getElementById('manager-sub-' + subId).classList.remove('hidden');
+            document.getElementById('manager-sub-' + subId).classList.add('block');
+        }
+
+        // Fetch Data from Server
+        function fetchData(alertForce = false) {
+            // Fetch Entities
+            fetch('/api/entities')
+                .then(res => res.json())
+                .then(data => {
+                    entities = data;
+                    
+                    // Render UI components
+                    document.getElementById('stat-triples').innerText = data.tripleCount;
+                    document.getElementById('stat-items').innerText = data.items.length;
+                    document.getElementById('stat-facilities').innerText = data.facilities.length;
+                    
+                    renderFacilitySpaces();
+                    renderEntitiesTables();
+                })
+                .catch(err => console.error("Error fetching entities:", err));
+
+            // Fetch Alerts
+            fetch('/api/alerts')
+                .then(res => res.json())
+                .then(data => {
+                    alerts = data;
+                    document.getElementById('stat-alerts').innerText = data.length;
+                    renderAlerts();
+                })
+                .catch(err => console.error("Error fetching alerts:", err));
+                
+            if (alertForce) {
+                // Toast notifications
+                showToast("Ontology reasoning computed successfully!");
+            }
+        }
+
+        // Renders alerts list in Dashboard
+        function renderAlerts() {
+            const container = document.getElementById('dashboard-alerts');
+            if (alerts.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
+                        <i class="fas fa-check-circle text-4xl text-emerald-500 mb-3"></i>
+                        <h4 class="font-bold text-slate-800 text-sm">Inventory Compliant!</h4>
+                        <p class="text-slate-500 text-xs mt-1">Reasoner found no safety conflicts or capacity limit violations.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = alerts.map(alert => {
+                // Determine styling and icon based on severity
+                let bg, border, text, badge, icon;
+                if (alert.severity === 'Critical') {
+                    bg = 'bg-red-50/40'; border = 'border-red-200'; text = 'text-red-950'; badge = 'bg-red-100 text-red-800'; icon = 'fa-radiation text-red-500';
+                } else if (alert.severity === 'High') {
+                    bg = 'bg-orange-50/40'; border = 'border-orange-200'; text = 'text-orange-950'; badge = 'bg-orange-100 text-orange-800'; icon = 'fa-triangle-exclamation text-orange-500';
+                } else if (alert.severity === 'Medium') {
+                    bg = 'bg-amber-50/30'; border = 'border-amber-200'; text = 'text-amber-950'; badge = 'bg-amber-100 text-amber-800'; icon = 'fa-circle-exclamation text-amber-500';
+                } else {
+                    bg = 'bg-blue-50/30'; border = 'border-blue-200'; text = 'text-blue-950'; badge = 'bg-blue-100 text-blue-800'; icon = 'fa-info-circle text-blue-500';
+                }
+                
+                // Check if alert can be solved via reassignment
+                // Only storage and transport alerts
+                const isSolvable = alert.type.includes("Storage") || alert.type.includes("Transport");
+                let solveBtn = '';
+                if (isSolvable && alert.entities.length > 0) {
+                    const itemUri = alert.entities.find(e => e.includes("Item_"));
+                    if (itemUri) {
+                        const item = entities.items.find(i => i.id === itemUri);
+                        const itemName = item ? item.name : itemUri.split('#')[-1];
+                        solveBtn = `
+                            <button onclick="openResolveModal('${itemUri}', '${itemName}')" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1 shrink-0">
+                                <i class="fas fa-wrench"></i> Reassign
+                            </button>
+                        `;
+                    }
+                }
+                
+                return `
+                    <div class="flex gap-4 p-4 rounded-xl border ${bg} ${border} hover:shadow-xs transition-all items-start">
+                        <div class="p-2 rounded-lg bg-white/70 border border-slate-100">
+                            <i class="fas ${icon} text-lg mt-0.5"></i>
+                        </div>
+                        <div class="flex-1 space-y-1">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${badge}">${alert.severity}</span>
+                                <span class="text-xs font-semibold text-slate-400">${alert.type}</span>
+                            </div>
+                            <p class="text-sm font-semibold text-slate-800 leading-snug">${alert.message}</p>
+                            <p class="text-xs text-slate-400 font-mono">Resource URI: <span class="text-slate-500 break-all select-all bg-white/50 px-1 py-0.5 rounded border border-slate-100">${alert.entities.join(', ')}</span></p>
+                        </div>
+                        ${solveBtn}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Renders facility space bars
+        function renderFacilitySpaces() {
+            const container = document.getElementById('dashboard-facility-space');
+            if (entities.facilities.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 text-center">No warehouses configured.</p>`;
+                return;
+            }
+            
+            container.innerHTML = entities.facilities.map(fac => {
+                // calculate sum of items stored in this facility
+                const itemsInFac = entities.items.filter(item => item.storedIn === fac.id);
+                const totalStored = itemsInFac.reduce((sum, item) => sum + item.quantity, 0);
+                const percentage = Math.min(Math.round((totalStored / fac.capacity) * 100), 100);
+                
+                let progressColor = 'bg-indigo-600';
+                if (percentage > 90) {
+                    progressColor = 'bg-red-500 animate-pulse';
+                } else if (percentage > 70) {
+                    progressColor = 'bg-orange-500';
+                }
+                
+                return `
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between text-xs font-semibold">
+                            <span class="text-slate-700 truncate" title="${fac.name}">${fac.name}</span>
+                            <span class="text-slate-400 font-mono">${totalStored} / ${fac.capacity}</span>
+                        </div>
+                        <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
+                            <div class="h-full ${progressColor} transition-all duration-500" style="width: ${percentage}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Render Entity Tables in manager subtab
+        function renderEntitiesTables() {
+            // Stock items table
+            const itemBody = document.getElementById('table-items-body');
+            itemBody.innerHTML = entities.items.map(item => `
+                <tr class="hover:bg-slate-50/50 text-slate-700 border-b border-slate-100 text-xs">
+                    <td class="px-6 py-4 font-mono font-bold text-slate-800">${item.localName}</td>
+                    <td class="px-6 py-4 font-semibold">${item.name}</td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            item.type === 'PerishableItem' ? 'bg-sky-50 text-sky-700 border border-sky-200' :
+                            item.type === 'HazardousItem' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                            'bg-slate-100 text-slate-600 border border-slate-200'
+                        }">${item.type.replace("Item", "")}</span>
+                    </td>
+                    <td class="px-6 py-4 font-bold font-mono ${item.quantity < item.minThreshold ? 'text-red-600' : 'text-slate-700'}">${item.quantity}</td>
+                    <td class="px-6 py-4 font-mono text-slate-400">${item.minThreshold}</td>
+                    <td class="px-6 py-4 truncate max-w-40 font-semibold" title="${item.storedInName}">${item.storedInName}</td>
+                    <td class="px-6 py-4 truncate max-w-40 font-semibold" title="${item.assignedToName}">${item.assignedToName}</td>
+                    <td class="px-6 py-4 text-right space-x-2">
+                        <button onclick="openResolveModal('${item.id}', '${item.name}', '${item.storedIn}', '${item.assignedTo}')" class="text-indigo-600 hover:text-indigo-900 font-semibold">Reassign</button>
+                        <button onclick="deleteEntity('${item.id}')" class="text-red-500 hover:text-red-800 font-semibold"><i class="fas fa-trash-can"></i></button>
+                    </td>
+                </tr>
+            `).join('') || `<tr><td colspan="8" class="text-center py-8 text-slate-400">No items found in ontology.</td></tr>`;
+
+            // Facilities table
+            const facilityBody = document.getElementById('table-facilities-body');
+            facilityBody.innerHTML = entities.facilities.map(fac => `
+                <tr class="hover:bg-slate-50/50 text-slate-700 border-b border-slate-100 text-xs">
+                    <td class="px-6 py-4 font-mono font-bold text-slate-800">${fac.localName}</td>
+                    <td class="px-6 py-4 font-semibold">${fac.name}</td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600">${fac.type.replace("Storage", "")}</span>
+                    </td>
+                    <td class="px-6 py-4 font-bold text-center">${fac.hasCooling ? '<i class="fas fa-check text-emerald-500"></i>' : '<i class="fas fa-minus text-slate-300"></i>'}</td>
+                    <td class="px-6 py-4 font-bold text-center">${fac.isHazardousApproved ? '<i class="fas fa-check text-rose-500"></i>' : '<i class="fas fa-minus text-slate-300"></i>'}</td>
+                    <td class="px-6 py-4 font-mono font-bold">${fac.capacity}</td>
+                    <td class="px-6 py-4 text-right">
+                        <button onclick="deleteEntity('${fac.id}')" class="text-red-500 hover:text-red-800 font-semibold"><i class="fas fa-trash-can"></i></button>
+                    </td>
+                </tr>
+            `).join('') || `<tr><td colspan="7" class="text-center py-8 text-slate-400">No storage facilities found.</td></tr>`;
+
+            // Vehicles table
+            const vehicleBody = document.getElementById('table-vehicles-body');
+            vehicleBody.innerHTML = entities.vehicles.map(veh => `
+                <tr class="hover:bg-slate-50/50 text-slate-700 border-b border-slate-100 text-xs">
+                    <td class="px-6 py-4 font-mono font-bold text-slate-800">${veh.localName}</td>
+                    <td class="px-6 py-4 font-semibold">${veh.name}</td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600">${veh.type.replace("Truck", "").replace("Tanker", "")}</span>
+                    </td>
+                    <td class="px-6 py-4 font-bold text-center">${veh.hasVehicleCooling ? '<i class="fas fa-check text-emerald-500"></i>' : '<i class="fas fa-minus text-slate-300"></i>'}</td>
+                    <td class="px-6 py-4 font-bold text-center">${veh.hasHazardousPermit ? '<i class="fas fa-check text-rose-500"></i>' : '<i class="fas fa-minus text-slate-300"></i>'}</td>
+                    <td class="px-6 py-4 text-right">
+                        <button onclick="deleteEntity('${veh.id}')" class="text-red-500 hover:text-red-800 font-semibold"><i class="fas fa-trash-can"></i></button>
+                    </td>
+                </tr>
+            `).join('') || `<tr><td colspan="6" class="text-center py-8 text-slate-400">No vehicles configured.</td></tr>`;
+
+            // Officers table
+            const officerBody = document.getElementById('table-officers-body');
+            officerBody.innerHTML = entities.officers.map(off => `
+                <tr class="hover:bg-slate-50/50 text-slate-700 border-b border-slate-100 text-xs">
+                    <td class="px-6 py-4 font-mono font-bold text-slate-800">${off.localName}</td>
+                    <td class="px-6 py-4 font-semibold">${off.name}</td>
+                    <td class="px-6 py-4 text-right">
+                        <button onclick="deleteEntity('${off.id}')" class="text-red-500 hover:text-red-800 font-semibold"><i class="fas fa-trash-can"></i></button>
+                    </td>
+                </tr>
+            `).join('') || `<tr><td colspan="3" class="text-center py-8 text-slate-400">No procurement officers configured.</td></tr>`;
+        }
+
+        // Delete entity
+        function deleteEntity(uri) {
+            if (!confirm(`Are you sure you want to delete entity:\n${uri}?\nThis will remove all associated facts from the triple store.`)) {
+                return;
+            }
+            
+            fetch('/api/entities/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uri: uri })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    alert("Error: " + data.error);
+                } else {
+                    fetchData(true);
+                }
+            })
+            .catch(err => console.error("Error deleting entity:", err));
+        }
+
+        // Open modal to add entity
+        function openAddModal(category) {
+            document.getElementById('form-category').value = category;
+            document.getElementById('form-id').value = '';
+            document.getElementById('form-name').value = '';
+            
+            const modal = document.getElementById('add-modal');
+            modal.classList.remove('hidden');
+            
+            const typeSelect = document.getElementById('form-type');
+            const typeContainer = document.getElementById('type-select-container');
+            const dynamicContainer = document.getElementById('dynamic-inputs');
+            
+            typeContainer.classList.remove('hidden');
+            dynamicContainer.innerHTML = '';
+            
+            if (category === 'item') {
+                document.getElementById('modal-title').innerHTML = '<i class="fas fa-circle-plus text-indigo-600"></i> Add Stock Item';
+                document.getElementById('label-name').innerText = 'Item Name';
+                
+                typeSelect.innerHTML = `
+                    <option value="StandardItem">Standard Inventory Item</option>
+                    <option value="PerishableItem">Perishable Temp-Sensitive Item</option>
+                    <option value="HazardousItem">Hazardous Material Item</option>
+                `;
+                
+                // Add fields for Quantity, Threshold, Warehouse drop, Vehicle drop, Officer drop
+                const warehousesOpt = entities.facilities.map(w => `<option value="${w.id}">${w.name} (${w.type.replace("Storage", "")})</option>`).join('');
+                const vehiclesOpt = entities.vehicles.map(v => `<option value="${v.id}">${v.name} (${v.type.replace("Truck", "").replace("Tanker", "")})</option>`).join('');
+                const officersOpt = entities.officers.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
+                
+                dynamicContainer.innerHTML = `
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Starting Stock Quantity</label>
+                            <input type="number" id="form-qty" required value="100" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Min Threshold Limit</label>
+                            <input type="number" id="form-min" required value="20" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Assign Storage Facility</label>
+                        <select id="form-storedin" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <option value="">-- No storage facility --</option>
+                            ${warehousesOpt}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Assign Vehicle Route</label>
+                        <select id="form-assignedto" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <option value="">-- No transport vehicle --</option>
+                            ${vehiclesOpt}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Procurement Officer in Charge</label>
+                        <select id="form-managedby" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <option value="">-- Assign officer --</option>
+                            ${officersOpt}
+                        </select>
+                    </div>
+                `;
+            } 
+            else if (category === 'facility') {
+                document.getElementById('modal-title').innerHTML = '<i class="fas fa-warehouse text-indigo-600"></i> Add Storage Warehouse';
+                document.getElementById('label-name').innerText = 'Facility Name';
+                
+                typeSelect.innerHTML = `
+                    <option value="GeneralStorage">General ambient storage</option>
+                    <option value="ColdStorage">Refrigerated cold storage</option>
+                    <option value="HazardousStorage">Hazardous containment storage</option>
+                `;
+                
+                dynamicContainer.innerHTML = `
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Warehouse Capacity Limit</label>
+                        <input type="number" id="form-capacity" required value="500" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono">
+                    </div>
+                    <div class="flex gap-6 pt-2 text-sm font-semibold">
+                        <label class="flex items-center gap-2 text-slate-600 cursor-pointer">
+                            <input type="checkbox" id="form-hascooling" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4.5 w-4.5">
+                            Refrigerated?
+                        </label>
+                        <label class="flex items-center gap-2 text-slate-600 cursor-pointer">
+                            <input type="checkbox" id="form-hashazard" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4.5 w-4.5">
+                            Approved for Hazard Goods?
+                        </label>
+                    </div>
+                `;
+                
+                // Add event listener to form-type to autocheck boxes
+                typeSelect.addEventListener('change', (e) => {
+                    document.getElementById('form-hascooling').checked = e.target.value === 'ColdStorage';
+                    document.getElementById('form-hashazard').checked = e.target.value === 'HazardousStorage';
+                });
+            } 
+            else if (category === 'vehicle') {
+                document.getElementById('modal-title').innerHTML = '<i class="fas fa-truck-ramp-box text-indigo-600"></i> Add Transport Vehicle';
+                document.getElementById('label-name').innerText = 'Vehicle Plate / Name';
+                
+                typeSelect.innerHTML = `
+                    <option value="FlatbedTruck">Standard Flatbed Truck</option>
+                    <option value="RefrigeratedTruck">Refrigerated Cooling Truck</option>
+                    <option value="ChemicalTanker">HazMat Certified Cargo Tanker</option>
+                `;
+                
+                dynamicContainer.innerHTML = `
+                    <div class="flex gap-6 pt-2 text-sm font-semibold">
+                        <label class="flex items-center gap-2 text-slate-600 cursor-pointer">
+                            <input type="checkbox" id="form-hasvehiclecooling" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4.5 w-4.5">
+                            Has Refrigeration?
+                        </label>
+                        <label class="flex items-center gap-2 text-slate-600 cursor-pointer">
+                            <input type="checkbox" id="form-hasvehiclehazard" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4.5 w-4.5">
+                            HazMat Permit?
+                        </label>
+                    </div>
+                `;
+                
+                typeSelect.addEventListener('change', (e) => {
+                    document.getElementById('form-hasvehiclecooling').checked = e.target.value === 'RefrigeratedTruck';
+                    document.getElementById('form-hasvehiclehazard').checked = e.target.value === 'ChemicalTanker';
+                });
+            } 
+            else if (category === 'officer') {
+                document.getElementById('modal-title').innerHTML = '<i class="fas fa-user-gear text-indigo-600"></i> Add Procurement Officer';
+                document.getElementById('label-name').innerText = 'Officer Full Name';
+                typeContainer.classList.add('hidden'); // Officers have no subclasses
+            }
+        }
+
+        // Close add modal
+        function closeAddModal() {
+            document.getElementById('add-modal').classList.add('hidden');
+        }
+
+        // Submit add form
+        function submitAddForm(event) {
+            event.preventDefault();
+            
+            const category = document.getElementById('form-category').value;
+            const payload = {
+                category: category,
+                id: document.getElementById('form-id').value.trim(),
+                name: document.getElementById('form-name').value.trim(),
+            };
+            
+            if (category === 'item') {
+                payload.type = document.getElementById('form-type').value;
+                payload.quantity = parseInt(document.getElementById('form-qty').value);
+                payload.minThreshold = parseInt(document.getElementById('form-min').value);
+                payload.storedIn = document.getElementById('form-storedin').value || null;
+                payload.assignedTo = document.getElementById('form-assignedto').value || null;
+                payload.managedBy = document.getElementById('form-managedby').value || null;
+            } 
+            else if (category === 'facility') {
+                payload.type = document.getElementById('form-type').value;
+                payload.capacity = parseInt(document.getElementById('form-capacity').value);
+                payload.hasCooling = document.getElementById('form-hascooling').checked;
+                payload.isHazardousApproved = document.getElementById('form-hashazard').checked;
+            } 
+            else if (category === 'vehicle') {
+                payload.type = document.getElementById('form-type').value;
+                payload.hasVehicleCooling = document.getElementById('form-hasvehiclecooling').checked;
+                payload.hasHazardousPermit = document.getElementById('form-hasvehiclehazard').checked;
+            }
+            
+            fetch('/api/entities/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    alert("Error adding entity: " + data.error);
+                } else {
+                    closeAddModal();
+                    fetchData(true);
+                }
+            })
+            .catch(err => console.error("Error submitting entity:", err));
+        }
+
+        // Open Resolve Modal
+        function openResolveModal(itemUri, itemName, currentStoredIn = '', currentAssignedTo = '') {
+            document.getElementById('resolve-item-uri').value = itemUri;
+            document.getElementById('resolve-item-name').innerText = itemName;
+            
+            // Populate facilities select
+            const facSelect = document.getElementById('resolve-facility-uri');
+            facSelect.innerHTML = `
+                <option value="None">-- Leave Unassigned --</option>
+                ${entities.facilities.map(w => `<option value="${w.id}" ${w.id === currentStoredIn ? 'selected' : ''}>${w.name} (${w.type.replace("Storage", "")})</option>`).join('')}
+            `;
+            
+            // Populate vehicles select
+            const vehSelect = document.getElementById('resolve-vehicle-uri');
+            vehSelect.innerHTML = `
+                <option value="None">-- Leave Unassigned --</option>
+                ${entities.vehicles.map(v => `<option value="${v.id}" ${v.id === currentAssignedTo ? 'selected' : ''}>${v.name} (${v.type.replace("Truck", "").replace("Tanker", "")})</option>`).join('')}
+            `;
+            
+            document.getElementById('resolve-modal').classList.remove('hidden');
+        }
+
+        // Close Resolve Modal
+        function closeResolveModal() {
+            document.getElementById('resolve-modal').classList.add('hidden');
+        }
+
+        // Submit Resolve Form
+        function submitResolveForm(event) {
+            event.preventDefault();
+            
+            const itemUri = document.getElementById('resolve-item-uri').value;
+            const facUri = document.getElementById('resolve-facility-uri').value;
+            const vehUri = document.getElementById('resolve-vehicle-uri').value;
+            
+            fetch('/api/entities/update-relations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    itemUri: itemUri,
+                    storedInUri: facUri,
+                    assignedToUri: vehUri
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    alert("Error updating assignment: " + data.error);
+                } else {
+                    closeResolveModal();
+                    fetchData(true);
+                }
+            })
+            .catch(err => console.error("Error submitting reassignment:", err));
+        }
+
+        // Run SPARQL Query in Console
+        function runSPARQLQuery() {
+            const query = document.getElementById('sparql-editor').value;
+            const btn = document.getElementById('sparql-run-btn');
             const originalText = btn.innerHTML;
             
-            // Show loading state
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin text-sm"></i> Running...';
-            btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin text-sm"></i> Executing...';
             btn.classList.add('bg-slate-400', 'cursor-not-allowed');
             
-            // Hide results temporarily
-            document.getElementById('query-results').classList.add('hidden');
-
-            // Mock network delay
-            setTimeout(() => {
-                // Restore button
+            const startTime = performance.now();
+            
+            fetch('/api/query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: query })
+            })
+            .then(res => res.json())
+            .then(data => {
+                const duration = ((performance.now() - startTime) / 1000).toFixed(2);
                 btn.innerHTML = originalText;
-                btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
                 btn.classList.remove('bg-slate-400', 'cursor-not-allowed');
                 
-                // Show results
-                document.getElementById('query-results').classList.remove('hidden');
-            }, 800);
+                const resultsCard = document.getElementById('sparql-results-card');
+                resultsCard.classList.remove('hidden');
+                
+                document.getElementById('sparql-exec-time').innerText = `Execution time: ${duration}s`;
+                
+                // Show raw JSON text in code pre
+                document.getElementById('sparql-raw-pre').innerText = JSON.stringify(data, null, 2);
+                
+                if (data.error) {
+                    document.getElementById('sparql-result-title').innerText = "Query Execution Error";
+                    document.getElementById('sparql-result-table').innerHTML = `
+                        <div class="p-6 text-red-600 font-mono text-xs">
+                            <h4 class="font-bold mb-1"><i class="fas fa-exclamation-triangle mr-1.5"></i> SPARQL parsing failed:</h4>
+                            ${data.error}
+                        </div>
+                    `;
+                } else if (data.head && data.head.vars) {
+                    // It is a SELECT query
+                    const vars = data.head.vars;
+                    const bindings = data.results.bindings;
+                    document.getElementById('sparql-result-title').innerText = `SELECT Results (${bindings.length} rows returned)`;
+                    
+                    // Render headers
+                    let tableHtml = `
+                        <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                ${vars.map(v => `<th class="px-6 py-3 font-semibold border-r border-slate-100">?${v}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 font-mono text-xs">
+                    `;
+                    
+                    // Render rows
+                    if (bindings.length === 0) {
+                        tableHtml += `<tr><td colspan="${vars.length}" class="text-center py-6 text-slate-400">Empty result set returned.</td></tr>`;
+                    } else {
+                        bindings.forEach(row => {
+                            tableHtml += `<tr class="hover:bg-slate-50/50">`;
+                            vars.forEach(v => {
+                                const valObj = row[v];
+                                let displayVal = '<em>null</em>';
+                                let textClass = 'text-slate-400';
+                                
+                                if (valObj) {
+                                    if (valObj.type === 'uri') {
+                                        const shortUri = valObj.value.includes('#') ? valObj.value.split('#')[1] : valObj.value;
+                                        displayVal = `<span class="truncate hover:text-indigo-900 cursor-pointer" title="${valObj.value}">${valObj.value.includes('http://example.org/logistics') ? 'logistics:' + shortUri : valObj.value}</span>`;
+                                        textClass = 'text-indigo-600 font-bold';
+                                    } else {
+                                        displayVal = valObj.value;
+                                        textClass = typeof valObj.value === 'number' ? 'text-emerald-600 font-bold' : 'text-slate-700';
+                                    }
+                                }
+                                tableHtml += `<td class="px-6 py-3 border-r border-slate-100 ${textClass}">${displayVal}</td>`;
+                            });
+                            tableHtml += `</tr>`;
+                        });
+                    }
+                    tableHtml += `</tbody>`;
+                    document.getElementById('sparql-result-table').innerHTML = tableHtml;
+                } else if (data.results && data.results.triples) {
+                    // CONSTRUCT or DESCRIBE
+                    const triples = data.results.triples;
+                    document.getElementById('sparql-result-title').innerText = `Constructed Graph (${triples.length} triples generated)`;
+                    
+                    let tableHtml = `
+                        <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th class="px-6 py-3 font-semibold border-r border-slate-100">Subject</th>
+                                <th class="px-6 py-3 font-semibold border-r border-slate-100">Predicate</th>
+                                <th class="px-6 py-3 font-semibold">Object</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 font-mono text-xs">
+                    `;
+                    
+                    if (triples.length === 0) {
+                        tableHtml += `<tr><td colspan="3" class="text-center py-6 text-slate-400">No triples generated.</td></tr>`;
+                    } else {
+                        triples.forEach(t => {
+                            tableHtml += `
+                                <tr class="hover:bg-slate-50/50">
+                                    <td class="px-6 py-3 border-r border-slate-100 text-indigo-600 font-bold">${t.subject.replace("http://example.org/logistics#", "logistics:")}</td>
+                                    <td class="px-6 py-3 border-r border-slate-100 text-purple-600 font-bold">${t.predicate.replace("http://example.org/logistics#", "logistics:").replace("http://www.w3.org/1999/02/22-rdf-syntax-ns#", "rdf:")}</td>
+                                    <td class="px-6 py-3 text-slate-700">${t.object.replace("http://example.org/logistics#", "logistics:")}</td>
+                                </tr>
+                            `;
+                        });
+                    }
+                    tableHtml += `</tbody>`;
+                    document.getElementById('sparql-result-table').innerHTML = tableHtml;
+                } else {
+                    document.getElementById('sparql-result-title').innerText = "Command Executed";
+                    document.getElementById('sparql-result-table').innerHTML = `
+                        <div class="p-6 text-emerald-600 font-bold text-xs">
+                            <i class="fas fa-check-circle mr-1.5"></i> SPARQL Action completed successfully. Inferred boolean value: ${data.boolean}
+                        </div>
+                    `;
+                }
+            })
+            .catch(err => {
+                btn.innerHTML = originalText;
+                btn.classList.remove('bg-slate-400', 'cursor-not-allowed');
+                alert("Network communication error running query.");
+                console.error(err);
+            });
+        }
+
+        // Toggle JSON display
+        function toggleRawJson() {
+            isJsonVisible = !isJsonVisible;
+            const container = document.getElementById('sparql-raw-json');
+            if (isJsonVisible) {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        // Clear console
+        function clearSPARQLConsole() {
+            document.getElementById('sparql-editor').value = '';
+            document.getElementById('sparql-results-card').classList.add('hidden');
+        }
+
+        // Preset loading
+        function loadQueryPreset(presetKey) {
+            if (sparqlPresets[presetKey]) {
+                document.getElementById('sparql-editor').value = sparqlPresets[presetKey];
+                document.getElementById('sparql-results-card').classList.add('hidden');
+            }
+        }
+
+        // ================= GRAPH RENDER LOGIC =================
+        function loadGraphNetwork() {
+            // Display spinner in inspector drawer
+            document.getElementById('graph-inspector-empty').innerHTML = `
+                <i class="fas fa-circle-notch fa-spin text-3xl mb-3 text-indigo-500 block"></i>
+                Synchronizing graph network model...
+            `;
+            
+            fetch('/api/graph-data')
+                .then(res => res.json())
+                .then(data => {
+                    // Restore inspector empty state message
+                    document.getElementById('graph-inspector-empty').innerHTML = `
+                        <i class="fas fa-circle-nodes text-3xl mb-3 text-slate-300 block"></i>
+                        Click any node in the graph network to inspect its URI and details.
+                    `;
+                    
+                    const container = document.getElementById('graph-container');
+                    
+                    // Style nodes based on group mapping
+                    const styledNodes = data.nodes.map(node => {
+                        let color, shape = 'dot';
+                        if (node.group === 'item') {
+                            color = { background: '#dbeafe', border: '#2563eb', highlight: { background: '#bfdbfe', border: '#1d4ed8' } };
+                        } else if (node.group === 'facility') {
+                            color = { background: '#d1fae5', border: '#059669', highlight: { background: '#a7f3d0', border: '#047857' } };
+                            shape = 'diamond';
+                        } else if (node.group === 'vehicle') {
+                            color = { background: '#f5d0fe', border: '#c084fc', highlight: { background: '#e9d5ff', border: '#a855f7' } };
+                            shape = 'triangleDown';
+                        } else if (node.group === 'officer') {
+                            color = { background: '#fef3c7', border: '#d97706', highlight: { background: '#fde68a', border: '#b45309' } };
+                        } else if (node.group === 'alert') {
+                            color = { background: '#fee2e2', border: '#dc2626', highlight: { background: '#fca5a5', border: '#b91c1c' } };
+                            shape = 'box';
+                        } else {
+                            color = { background: '#f1f5f9', border: '#64748b', highlight: { background: '#e2e8f0', border: '#475569' } };
+                        }
+                        
+                        return {
+                            ...node,
+                            color: color,
+                            shape: shape
+                        };
+                    });
+
+                    const dataset = {
+                        nodes: new vis.DataSet(styledNodes),
+                        edges: new vis.DataSet(data.edges)
+                    };
+
+                    const options = {
+                        nodes: {
+                            size: 20,
+                            font: { size: 12, face: 'Outfit', color: '#1e293b' },
+                            borderWidth: 2,
+                            shadow: true
+                        },
+                        edges: {
+                            width: 1.5,
+                            arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+                            color: '#94a3b8',
+                            font: { size: 10, align: 'horizontal', background: '#ffffff' },
+                            smooth: { type: 'continuous' }
+                        },
+                        physics: {
+                            enabled: true,
+                            solver: 'forceAtlas2Based',
+                            forceAtlas2Based: {
+                                gravitationalConstant: -80,
+                                centralGravity: 0.02,
+                                springLength: 120,
+                                springConstant: 0.08
+                            },
+                            stabilization: { iterations: 100 }
+                        }
+                    };
+
+                    visNetwork = new vis.Network(container, dataset, options);
+
+                    // Add node selection listener to trigger Inspector Panel
+                    visNetwork.on("selectNode", function (params) {
+                        if (params.nodes.length > 0) {
+                            const nodeUri = params.nodes[0];
+                            inspectNode(nodeUri);
+                        }
+                    });
+                    
+                    visNetwork.on("deselectNode", function () {
+                        document.getElementById('graph-inspector-empty').classList.remove('hidden');
+                        document.getElementById('graph-inspector-content').classList.add('hidden');
+                    });
+                })
+                .catch(err => console.error("Error loading graph data:", err));
+        }
+
+        // Inspections inside Vis selection
+        function inspectNode(uri) {
+            document.getElementById('graph-inspector-empty').classList.add('hidden');
+            const content = document.getElementById('graph-inspector-content');
+            content.classList.remove('hidden');
+            
+            document.getElementById('inspector-uri').innerText = uri;
+            
+            // Run a mini SPARQL query to get all facts (subject or object) matching this node
+            const query = `PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+SELECT ?predicate ?object ?subject
+WHERE {
+  { <${uri}> ?predicate ?object . }
+  UNION
+  { ?subject ?predicate <${uri}> . }
+}`;
+            
+            fetch('/api/query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: query })
+            })
+            .then(res => res.json())
+            .then(data => {
+                const list = document.getElementById('inspector-triples');
+                list.innerHTML = '';
+                
+                if (data.results && data.results.bindings) {
+                    const bindings = data.results.bindings;
+                    list.innerHTML = bindings.map(b => {
+                        const pred = b.predicate.value.split('#').pop();
+                        
+                        if (b.object) {
+                            // Target was Subject, viewing out-edges
+                            const objVal = b.object.value.split('#').pop() || b.object.value;
+                            return `
+                                <div class="bg-white p-2 rounded border border-slate-200/60 flex flex-col gap-0.5">
+                                    <span class="text-[10px] text-slate-400 font-semibold uppercase">Out relationship</span>
+                                    <p class="font-medium text-slate-800"><span class="text-purple-600 font-bold font-mono">${pred}</span> &rarr; <span class="font-bold text-slate-700">${objVal}</span></p>
+                                </div>
+                            `;
+                        } else {
+                            // Target was Object, viewing in-edges
+                            const subjVal = b.subject.value.split('#').pop() || b.subject.value;
+                            return `
+                                <div class="bg-white p-2 rounded border border-slate-200/60 flex flex-col gap-0.5">
+                                    <span class="text-[10px] text-slate-400 font-semibold uppercase">In relationship</span>
+                                    <p class="font-medium text-slate-800"><span class="font-bold text-slate-700">${subjVal}</span> &rarr; <span class="text-purple-600 font-bold font-mono">${pred}</span></p>
+                                </div>
+                            `;
+                        }
+                    }).join('');
+                }
+            })
+            .catch(err => console.error("Error inspecting node triples:", err));
+        }
+
+        // Custom toast helper
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = "fixed bottom-5 right-5 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm z-50 transform translate-y-10 opacity-0 transition-all duration-300";
+            toast.innerHTML = `<i class="fas fa-circle-check text-emerald-400"></i> <span class="font-semibold">${message}</span>`;
+            document.body.appendChild(toast);
+            
+            // animate slide up
+            setTimeout(() => {
+                toast.classList.remove('translate-y-10', 'opacity-0');
+            }, 50);
+            
+            // slide down & destroy
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
         }
     </script>
 </body>
