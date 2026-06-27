@@ -10,14 +10,14 @@
 logistics:Item_CardboardBoxes a logistics:Entity,
         logistics:StandardItem,
         logistics:StockItem ;
-    logistics:assignedTo logistics:Truck_Standard ;
+    logistics:assignedTo logistics:Truck_Haz ;
     logistics:isHazardous false ;
     logistics:itemName "Cardboard Packing Boxes" ;
     logistics:managedBy logistics:Officer_Alice ;
     logistics:minThreshold 200 ;
     logistics:quantity 950 ;
     logistics:requiresCooling false ;
-    logistics:storedIn logistics:Warehouse_A .
+    logistics:storedIn logistics:ColdHub_1 .
 
 logistics:Item_FreshMilk a logistics:Entity,
         logistics:PerishableItem,
@@ -61,16 +61,14 @@ logistics:Item_LiquidNitrogen a logistics:Entity,
 logistics:Item_SulfuricAcid a logistics:Entity,
         logistics:HazardousItem,
         logistics:StockItem ;
-    logistics:assignedTo logistics:Truck_Standard ;
-    logistics:hasAlert logistics:Item_SulfuricAcid_StorageHazardAlert,
-        logistics:Item_SulfuricAcid_TransportHazardAlert ;
+    logistics:assignedTo logistics:Truck_Haz ;
     logistics:isHazardous true ;
     logistics:itemName "Industrial Sulfuric Acid" ;
     logistics:managedBy logistics:Officer_Bob ;
     logistics:minThreshold 80 ;
     logistics:quantity 150 ;
     logistics:requiresCooling false ;
-    logistics:storedIn logistics:Warehouse_A .
+    logistics:storedIn logistics:HazMat_Depot .
 
 logistics:alertMessage a owl:DatatypeProperty ;
     rdfs:label "alert message" ;
@@ -185,13 +183,10 @@ logistics:ChemicalTanker a owl:Class ;
     rdfs:comment "Vehicle certified to transport hazardous materials." ;
     rdfs:subClassOf logistics:TransportVehicle .
 
-logistics:ColdHub_1 a logistics:ColdStorage,
-        logistics:Entity,
-        logistics:StorageFacility ;
-    logistics:capacity 500 ;
-    logistics:facilityName "Refrigerated ColdHub 1" ;
-    logistics:hasCooling true ;
-    logistics:isHazardousApproved false .
+logistics:ColdHub_1_CapacityAlert a logistics:CapacityAlert ;
+    logistics:alertMessage "Capacity exceeded at 'Refrigerated ColdHub 1': storing 1150 items (limit is 500)."^^xsd:string ;
+    logistics:alertSeverity "High"^^xsd:string ;
+    logistics:alertType "Capacity Limit Exceeded"^^xsd:string .
 
 logistics:ColdStorage a owl:Class ;
     rdfs:label "Cold Storage Facility" ;
@@ -207,14 +202,6 @@ logistics:GeneralStorage a owl:Class ;
     rdfs:label "General Storage Facility" ;
     rdfs:comment "Standard ambient warehouse." ;
     rdfs:subClassOf logistics:StorageFacility .
-
-logistics:HazMat_Depot a logistics:Entity,
-        logistics:HazardousStorage,
-        logistics:StorageFacility ;
-    logistics:capacity 300 ;
-    logistics:facilityName "Secured Chemical Depot" ;
-    logistics:hasCooling false ;
-    logistics:isHazardousApproved true .
 
 logistics:HazardousStorage a owl:Class ;
     rdfs:label "Hazardous Storage Facility" ;
@@ -240,6 +227,14 @@ logistics:StandardItem a owl:Class ;
     rdfs:comment "Regular stock item requiring no specialized conditions." ;
     rdfs:subClassOf logistics:StockItem .
 
+logistics:StorageConflictAlert a owl:Class ;
+    rdfs:label "Storage Conflict Alert" ;
+    rdfs:subClassOf logistics:Alert .
+
+logistics:TransportConflictAlert a owl:Class ;
+    rdfs:label "Transport Conflict Alert" ;
+    rdfs:subClassOf logistics:Alert .
+
 logistics:Truck_Cool a logistics:Entity,
         logistics:RefrigeratedTruck,
         logistics:TransportVehicle ;
@@ -247,17 +242,39 @@ logistics:Truck_Cool a logistics:Entity,
     logistics:hasVehicleCooling true ;
     logistics:vehicleName "ThermoKing Refrigerated (T-20)" .
 
-logistics:Truck_Haz a logistics:ChemicalTanker,
-        logistics:Entity,
+logistics:Truck_Standard a logistics:Entity,
+        logistics:FlatbedTruck,
         logistics:TransportVehicle ;
-    logistics:hasHazardousPermit true ;
+    logistics:hasAlert logistics:Item_FrozenFish_TransportCoolingAlert ;
+    logistics:hasHazardousPermit false ;
     logistics:hasVehicleCooling false ;
-    logistics:vehicleName "HazMat Cargo Tanker (T-30)" .
+    logistics:vehicleName "Flatbed Truck (T-10)" .
 
-logistics:Warehouse_A_CapacityAlert a logistics:CapacityAlert ;
-    logistics:alertMessage "Capacity exceeded at 'Main Warehouse A': storing 1220 items (limit is 1000)."^^xsd:string ;
-    logistics:alertSeverity "High"^^xsd:string ;
-    logistics:alertType "Capacity Limit Exceeded"^^xsd:string .
+logistics:Warehouse_A a logistics:Entity,
+        logistics:GeneralStorage,
+        logistics:StorageFacility ;
+    logistics:capacity 1000 ;
+    logistics:facilityName "Main Warehouse A" ;
+    logistics:hasAlert logistics:Item_FrozenFish_StorageCoolingAlert ;
+    logistics:hasCooling false ;
+    logistics:isHazardousApproved false .
+
+logistics:ColdHub_1 a logistics:ColdStorage,
+        logistics:Entity,
+        logistics:StorageFacility ;
+    logistics:capacity 500 ;
+    logistics:facilityName "Refrigerated ColdHub 1" ;
+    logistics:hasAlert logistics:ColdHub_1_CapacityAlert ;
+    logistics:hasCooling true ;
+    logistics:isHazardousApproved false .
+
+logistics:HazMat_Depot a logistics:Entity,
+        logistics:HazardousStorage,
+        logistics:StorageFacility ;
+    logistics:capacity 300 ;
+    logistics:facilityName "Secured Chemical Depot" ;
+    logistics:hasCooling false ;
+    logistics:isHazardousApproved true .
 
 logistics:HazardousItem a owl:Class ;
     rdfs:label "Hazardous Item" ;
@@ -274,16 +291,6 @@ logistics:Item_FrozenFish_TransportCoolingAlert a logistics:TransportConflictAle
     logistics:alertSeverity "High"^^xsd:string ;
     logistics:alertType "Transport Cooling Conflict"^^xsd:string .
 
-logistics:Item_SulfuricAcid_StorageHazardAlert a logistics:StorageConflictAlert ;
-    logistics:alertMessage "Hazardous item 'Industrial Sulfuric Acid' is stored in 'Main Warehouse A', which is not approved for hazardous materials."^^xsd:string ;
-    logistics:alertSeverity "Critical"^^xsd:string ;
-    logistics:alertType "Hazardous Storage Conflict"^^xsd:string .
-
-logistics:Item_SulfuricAcid_TransportHazardAlert a logistics:TransportConflictAlert ;
-    logistics:alertMessage "Hazardous item 'Industrial Sulfuric Acid' requires specialized vehicle transit, but is assigned to 'Flatbed Truck (T-10)' which lacks a hazardous permit."^^xsd:string ;
-    logistics:alertSeverity "Critical"^^xsd:string ;
-    logistics:alertType "Transport Hazard Conflict"^^xsd:string .
-
 logistics:Officer_Bob a logistics:Entity,
         logistics:ProcurementOfficer ;
     logistics:officerName "Bob Smith" .
@@ -293,37 +300,16 @@ logistics:PerishableItem a owl:Class ;
     rdfs:comment "Stock item requiring temperature-controlled storage." ;
     rdfs:subClassOf logistics:StockItem .
 
-logistics:StorageConflictAlert a owl:Class ;
-    rdfs:label "Storage Conflict Alert" ;
-    rdfs:subClassOf logistics:Alert .
-
-logistics:TransportConflictAlert a owl:Class ;
-    rdfs:label "Transport Conflict Alert" ;
-    rdfs:subClassOf logistics:Alert .
-
 logistics:Officer_Alice a logistics:Entity,
         logistics:ProcurementOfficer ;
     logistics:officerName "Alice Johnson" .
 
-logistics:Truck_Standard a logistics:Entity,
-        logistics:FlatbedTruck,
+logistics:Truck_Haz a logistics:ChemicalTanker,
+        logistics:Entity,
         logistics:TransportVehicle ;
-    logistics:hasAlert logistics:Item_FrozenFish_TransportCoolingAlert,
-        logistics:Item_SulfuricAcid_TransportHazardAlert ;
-    logistics:hasHazardousPermit false ;
+    logistics:hasHazardousPermit true ;
     logistics:hasVehicleCooling false ;
-    logistics:vehicleName "Flatbed Truck (T-10)" .
-
-logistics:Warehouse_A a logistics:Entity,
-        logistics:GeneralStorage,
-        logistics:StorageFacility ;
-    logistics:capacity 1000 ;
-    logistics:facilityName "Main Warehouse A" ;
-    logistics:hasAlert logistics:Item_FrozenFish_StorageCoolingAlert,
-        logistics:Item_SulfuricAcid_StorageHazardAlert,
-        logistics:Warehouse_A_CapacityAlert ;
-    logistics:hasCooling false ;
-    logistics:isHazardousApproved false .
+    logistics:vehicleName "HazMat Cargo Tanker (T-30)" .
 
 logistics:ProcurementOfficer a owl:Class ;
     rdfs:label "Procurement Officer" ;
